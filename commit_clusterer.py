@@ -15,12 +15,10 @@ def is_merge_commit(msg):
 
 def clean_message(msg):
 
-    # prefix 제거 (: 기준)
     if ":" in msg:
         msg = msg.split(":", 1)[1]
 
-    # commit 타입 단어 제거
-    msg = re.sub(r'\b(feat|fix|refactor|chore|docs|style)\b', '', msg, flags=re.I)
+    msg = re.sub(r'\b(feat|fix|refactor|chore|docs|test)\b', '', msg, flags=re.I)
 
     return msg.strip()
 
@@ -31,7 +29,6 @@ def extract_path_group(msg):
         return None
 
     idx = msg.find(">")
-
     group = msg[:idx].strip()
 
     return group
@@ -43,8 +40,7 @@ def extract_leaf_message(msg):
         return msg
 
     idx = msg.find(">")
-
-    return msg[idx + 1 :].strip()
+    return msg[idx + 1:].strip()
 
 
 def parse_commit_line(line):
@@ -85,7 +81,7 @@ def load_repo_messages(file_path):
 def split_groups(messages):
 
     path_groups = defaultdict(list)
-    normal_msgs = []
+    no_group = []
 
     for msg in messages:
 
@@ -93,11 +89,10 @@ def split_groups(messages):
 
         if group:
             path_groups[group].append(msg)
-
         else:
-            normal_msgs.append(msg)
+            no_group.append(msg)
 
-    return path_groups, normal_msgs
+    return path_groups, no_group
 
 
 def cluster_messages(messages):
@@ -109,7 +104,6 @@ def cluster_messages(messages):
 
     embeddings = MODEL.encode(sentences)
 
-    # 클러스터 개수 자동 설정 (2~5)
     n_clusters = min(5, max(2, len(messages) // 5))
 
     kmeans = KMeans(
@@ -130,25 +124,35 @@ def cluster_messages(messages):
 
 def generate_repo_report(repo, messages, reports_dir):
 
-    path_groups, normal_msgs = split_groups(messages)
-
-    clusters = cluster_messages(normal_msgs)
+    path_groups, no_group_msgs = split_groups(messages)
 
     report = []
 
     report.append(f"# {repo}\n")
 
-    # path 그룹
+    clustering_targets = []
+
+    # 1차 그룹 처리
     for group, msgs in path_groups.items():
 
-        report.append(f"## {group}")
+        if len(msgs) >= 5:
 
-        for m in msgs:
-            report.append(f"- {m}")
+            report.append(f"## {group}")
 
-        report.append("")
+            for m in msgs:
+                report.append(f"- {m}")
 
-    # 클러스터링 결과
+            report.append("")
+
+        else:
+            clustering_targets.extend(msgs)
+
+    # 그룹 없는 메시지도 클러스터링 대상으로
+    clustering_targets.extend(no_group_msgs)
+
+    # 클러스터링 실행
+    clusters = cluster_messages(clustering_targets)
+
     for cid, msgs in clusters.items():
 
         report.append(f"## cluster-{cid}")
@@ -169,7 +173,6 @@ def run_clustering(commits_dir):
     base_dir = os.path.dirname(commits_dir)
 
     reports_dir = os.path.join(base_dir, "reports")
-
     os.makedirs(reports_dir, exist_ok=True)
 
     txt_files = [
