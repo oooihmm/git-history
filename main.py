@@ -1,23 +1,16 @@
 import os
 import subprocess
+from dotenv import load_dotenv
 
 
-AUTHORS = [
-    "oooihmm",
-    "최진선",
-    "jinseon choi",
-    "Jinseon Choi",
-]
-
-
-def collect_commits(workspace, output_dir):
+def collect_commits(workspace, output_dir, authors):
     current_folder = os.path.basename(output_dir)
 
     for folder in os.listdir(workspace):
         repo_path = os.path.join(workspace, folder)
         cmd = ["git", "-C", repo_path, "log"]
 
-        for author in AUTHORS:
+        for author in authors:
             cmd.append(f"--author={author}")
 
         cmd += [
@@ -54,8 +47,11 @@ def collect_commits(workspace, output_dir):
 def main():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     workspace = os.path.dirname(current_dir)
+    
+    load_dotenv(os.path.join(current_dir, ".env"))
+    authors = os.getenv("AUTHORS").split(",")
 
-    collect_commits(workspace, current_dir)
+    collect_commits(workspace, current_dir, authors)
 
 
 if __name__ == "__main__":
