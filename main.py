@@ -1,59 +1,22 @@
 import os
-import subprocess
 from dotenv import load_dotenv
 
-
-def collect_commits(workspace, output_dir, authors):
-    current_folder = os.path.basename(output_dir)
-    commits_dir = os.path.join(output_dir, "commits")
-    os.makedirs(commits_dir, exist_ok=True)
-
-    for folder in os.listdir(workspace):
-        repo_path = os.path.join(workspace, folder)
-        cmd = ["git", "-C", repo_path, "log"]
-
-        for author in authors:
-            cmd.append(f"--author={author}")
-
-        cmd += [
-            "--pretty=format:%h | %ad | %an | %s",
-            "--date=short",
-        ]
-
-        if folder == current_folder:
-            continue
-
-        if not os.path.isdir(repo_path):
-            continue
-
-        if not os.path.isdir(os.path.join(repo_path, ".git")):
-            continue
-
-        print(f"Processing {folder}...")
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-        )
-
-        if result.stdout.strip() == "":
-            continue
-
-        output_file = os.path.join(commits_dir, f"{folder}.txt")
-
-        with open(output_file, "w") as f:
-            f.write(result.stdout)
+from git_collector import collect_commits
 
 
 def main():
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     workspace = os.path.dirname(current_dir)
-    
+
     load_dotenv(os.path.join(current_dir, ".env"))
     authors = os.getenv("AUTHORS").split(",")
 
-    collect_commits(workspace, current_dir, authors)
+    collect_commits(
+        workspace=workspace,
+        output_dir=current_dir,
+        authors=authors,
+    )
 
 
 if __name__ == "__main__":
