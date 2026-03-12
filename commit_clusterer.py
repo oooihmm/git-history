@@ -3,7 +3,7 @@ import re
 from collections import defaultdict
 
 from sentence_transformers import SentenceTransformer
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import KMeans
 
 
 MODEL = SentenceTransformer("all-MiniLM-L6-v2")
@@ -14,27 +14,36 @@ def is_merge_commit(msg):
 
 
 def clean_message(msg):
+
     # prefix 제거 (: 기준)
     if ":" in msg:
         msg = msg.split(":", 1)[1]
+
+    # commit 타입 단어 제거
+    msg = re.sub(r'\b(feat|fix|refactor|chore|docs|style)\b', '', msg, flags=re.I)
+
     return msg.strip()
 
 
 def extract_path_group(msg):
+
     if ">" not in msg:
         return None
 
     idx = msg.find(">")
+
     group = msg[:idx].strip()
 
     return group
 
 
 def extract_leaf_message(msg):
+
     if ">" not in msg:
         return msg
 
     idx = msg.find(">")
+
     return msg[idx + 1 :].strip()
 
 
@@ -64,6 +73,7 @@ def load_repo_messages(file_path):
 
     with open(file_path) as f:
         for line in f:
+
             msg = parse_commit_line(line)
 
             if msg:
@@ -99,15 +109,20 @@ def cluster_messages(messages):
 
     embeddings = MODEL.encode(sentences)
 
-    clustering = DBSCAN(
-        eps=0.5,
-        min_samples=3,
-        metric="cosine",
-    ).fit(embeddings)
+    # 클러스터 개수 자동 설정 (2~5)
+    n_clusters = min(5, max(2, len(messages) // 5))
+
+    kmeans = KMeans(
+        n_clusters=n_clusters,
+        random_state=42,
+        n_init="auto"
+    )
+
+    labels = kmeans.fit_predict(embeddings)
 
     clusters = defaultdict(list)
 
-    for label, msg in zip(clustering.labels_, messages):
+    for label, msg in zip(labels, messages):
         clusters[label].append(msg)
 
     return clusters
@@ -123,7 +138,7 @@ def generate_repo_report(repo, messages, reports_dir):
 
     report.append(f"# {repo}\n")
 
-    # path 그룹 먼저
+    # path 그룹
     for group, msgs in path_groups.items():
 
         report.append(f"## {group}")
@@ -133,7 +148,7 @@ def generate_repo_report(repo, messages, reports_dir):
 
         report.append("")
 
-    # clustering 결과
+    # 클러스터링 결과
     for cid, msgs in clusters.items():
 
         report.append(f"## cluster-{cid}")
@@ -154,6 +169,7 @@ def run_clustering(commits_dir):
     base_dir = os.path.dirname(commits_dir)
 
     reports_dir = os.path.join(base_dir, "reports")
+
     os.makedirs(reports_dir, exist_ok=True)
 
     txt_files = [
