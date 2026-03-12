@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 
 from git_collector import collect_commits
+from commit_clusterer import run_clustering
 
 def commits_exist(commits_dir):
 
@@ -58,9 +59,7 @@ def main():
         else:
             print("기존 commit 데이터 사용")
 
-    if not commits_exist(commits_dir):
-        print("분석할 commit 파일이 없습니다.")
-        return
+    run_clustering(commits_dir)
 
     print("완료")
 
