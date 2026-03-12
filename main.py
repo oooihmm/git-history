@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 def collect_commits(workspace, output_dir, authors):
     current_folder = os.path.basename(output_dir)
+    commits_dir = os.path.join(output_dir, "commits")
+    os.makedirs(commits_dir, exist_ok=True)
 
     for folder in os.listdir(workspace):
         repo_path = os.path.join(workspace, folder)
@@ -38,7 +40,7 @@ def collect_commits(workspace, output_dir, authors):
         if result.stdout.strip() == "":
             continue
 
-        output_file = os.path.join(output_dir, f"{folder}.txt")
+        output_file = os.path.join(commits_dir, f"{folder}.txt")
 
         with open(output_file, "w") as f:
             f.write(result.stdout)
